@@ -44,4 +44,5 @@ private:
 
 	std::vector<std::string> m_loaded_saves;
 	std::string m_SaveDirectory;
+	std::mutex m_flush_mutex;
 };

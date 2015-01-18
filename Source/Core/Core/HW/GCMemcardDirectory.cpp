@@ -15,6 +15,7 @@ static const char *MC_HDR = "MC_SYSTEM_AREA";
 
 int GCMemcardDirectory::LoadGCI(const std::string& fileName, DiscIO::IVolume::ECountry card_region, bool currentGameOnly)
 {
+	std::unique_lock<std::mutex> l(m_flush_mutex);
 	File::IOFile gcifile(fileName, "rb");
 	if (gcifile)
 	{
@@ -253,24 +254,104 @@ s32 GCMemcardDirectory::Read(u32 address, s32 length, u8 *destaddress)
 
 s32 GCMemcardDirectory::Write(u32 destaddress, s32 length, u8 *srcaddress)
 {
-	if (length != 0x80)
-		INFO_LOG(EXPANSIONINTERFACE, "WRITING TO %x, len %x", destaddress, length);
-	s32 block = destaddress / BLOCK_SIZE;
-	u32 offset = destaddress % BLOCK_SIZE;
 	s32 extra = 0; // used for write calls that are across multiple blocks
-
-	if (offset + length > BLOCK_SIZE)
 	{
-		extra = length + offset - BLOCK_SIZE;
-		length -= extra;
+		std::unique_lock<std::mutex> l(m_flush_mutex);
+		if (length != 0x80)
+			INFO_LOG(EXPANSIONINTERFACE, "WRITING TO %x, len %x", destaddress, length);
+		s32 block = destaddress / BLOCK_SIZE;
+		u32 offset = destaddress % BLOCK_SIZE;
 
-		// verify that we haven't calculated a length beyond BLOCK_SIZE
-		_dbg_assert_msg_(EXPANSIONINTERFACE, (destaddress + length) % BLOCK_SIZE == 0,
-						 "Memcard directory Write Logic Error");
+		if (offset + length > BLOCK_SIZE)
+		{
+			extra = length + offset - BLOCK_SIZE;
+			length -= extra;
+
+			// verify that we haven't calculated a length beyond BLOCK_SIZE
+			_dbg_assert_msg_(EXPANSIONINTERFACE, (destaddress + length) % BLOCK_SIZE == 0,
+							 "Memcard directory Write Logic Error");
+		}
+
+		if (m_LastBlock != block)
+		{
+			switch (block)
+			{
+			case 0:
+				m_LastBlock = block;
+				m_LastBlockAddress = (u8 *)&m_hdr;
+				break;
+			case 1:
+			case 2:
+			{
+				m_LastBlock = -1;
+				s32 bytes_written = 0;
+				while (length > 0)
+				{
+					s32 to_write = std::min<s32>(DENTRY_SIZE, length);
+					bytes_written += DirectoryWrite(destaddress + bytes_written, to_write, srcaddress + bytes_written);
+					length -= to_write;
+				}
+				l.unlock();
+				FlushToFile();
+				return bytes_written;
+			}
+			case 3:
+				m_LastBlock = block;
+				m_LastBlockAddress = (u8 *)&m_bat1;
+				break;
+			case 4:
+				m_LastBlock = block;
+				m_LastBlockAddress = (u8 *)&m_bat2;
+				break;
+			default:
+				m_LastBlock = SaveAreaRW(block, true);
+				if (m_LastBlock == -1)
+				{
+					PanicAlertT("Report: GCIFolder Writing to unallocated block %x", block);
+					exit(0);
+				}
+			}
+		}
+
+		memcpy(m_LastBlockAddress + offset, srcaddress, length);
+		//it happens sometimes that the block isn't marked dirty yet. This quickly makes sure to set the block to dirty before the flush is called so we don't lose data
+		for (u16 i = 0; i < m_saves.size(); ++i)
+		{
+			if (BE32(m_saves[i].m_gci_header.Gamecode) != 0xFFFFFFFF)
+			{
+				if (m_saves[i].m_used_blocks.size() == 0)
+				{
+					SetUsedBlocks(i);
+				}
+
+				int idx = m_saves[i].UsesBlock(block);
+				if (idx != -1) {
+					m_saves[i].m_dirty = true;
+				}
+			}
+		}
 	}
 
-	if (m_LastBlock != block)
+	//write the extra bits or flush to file if it's the last write
+	if (extra)
+		extra = Write(destaddress + length, extra, srcaddress + length);
+	else
+		FlushToFile();
+	return length + extra;
+}
+
+void GCMemcardDirectory::ClearBlock(u32 address)
+{
 	{
+		if (address % BLOCK_SIZE)
+		{
+			PanicAlertT("GCMemcardDirectory: ClearBlock called with invalid block address");
+			return;
+		}
+		std::unique_lock<std::mutex> l(m_flush_mutex);
+
+		u32 block = address / BLOCK_SIZE;
+		INFO_LOG(EXPANSIONINTERFACE, "clearing block %d", block);
 		switch (block)
 		{
 		case 0:
@@ -278,18 +359,13 @@ s32 GCMemcardDirectory::Write(u32 destaddress, s32 length, u8 *srcaddress)
 			m_LastBlockAddress = (u8 *)&m_hdr;
 			break;
 		case 1:
-		case 2:
-		{
 			m_LastBlock = -1;
-			s32 bytes_written = 0;
-			while (length > 0)
-			{
-				s32 to_write = std::min<s32>(DENTRY_SIZE, length);
-				bytes_written += DirectoryWrite(destaddress + bytes_written, to_write, srcaddress + bytes_written);
-				length -= to_write;
-			}
-			return bytes_written;
-		}
+			m_LastBlockAddress = (u8 *)&m_dir1;
+			break;
+		case 2:
+			m_LastBlock = -1;
+			m_LastBlockAddress = (u8 *)&m_dir2;
+			break;
 		case 3:
 			m_LastBlock = block;
 			m_LastBlockAddress = (u8 *)&m_bat1;
@@ -301,58 +377,11 @@ s32 GCMemcardDirectory::Write(u32 destaddress, s32 length, u8 *srcaddress)
 		default:
 			m_LastBlock = SaveAreaRW(block, true);
 			if (m_LastBlock == -1)
-			{
-				PanicAlertT("Report: GCIFolder Writing to unallocated block %x", block);
-				exit(0);
-			}
+				return;
 		}
+		((GCMBlock *)m_LastBlockAddress)->Erase();
 	}
-
-	memcpy(m_LastBlockAddress + offset, srcaddress, length);
-
-	if (extra)
-		extra = Write(destaddress + length, extra, srcaddress + length);
-	return length + extra;
-}
-
-void GCMemcardDirectory::ClearBlock(u32 address)
-{
-	if (address % BLOCK_SIZE)
-	{
-		PanicAlertT("GCMemcardDirectory: ClearBlock called with invalid block address");
-		return;
-	}
-
-	u32 block = address / BLOCK_SIZE;
-	INFO_LOG(EXPANSIONINTERFACE, "clearing block %d", block);
-	switch (block)
-	{
-	case 0:
-		m_LastBlock = block;
-		m_LastBlockAddress = (u8 *)&m_hdr;
-		break;
-	case 1:
-		m_LastBlock = -1;
-		m_LastBlockAddress = (u8 *)&m_dir1;
-		break;
-	case 2:
-		m_LastBlock = -1;
-		m_LastBlockAddress = (u8 *)&m_dir2;
-		break;
-	case 3:
-		m_LastBlock = block;
-		m_LastBlockAddress = (u8 *)&m_bat1;
-		break;
-	case 4:
-		m_LastBlock = block;
-		m_LastBlockAddress = (u8 *)&m_bat2;
-		break;
-	default:
-		m_LastBlock = SaveAreaRW(block, true);
-		if (m_LastBlock == -1)
-			return;
-	}
-	((GCMBlock *)m_LastBlockAddress)->Erase();
+	FlushToFile();
 }
 
 inline void GCMemcardDirectory::SyncSaves()
@@ -506,6 +535,7 @@ bool GCMemcardDirectory::SetUsedBlocks(int saveIndex)
 
 void GCMemcardDirectory::FlushToFile()
 {
+	std::unique_lock<std::mutex> l(m_flush_mutex);
 	int errors = 0;
 	DEntry invalid;
 	for (u16 i = 0; i < m_saves.size(); ++i)
@@ -535,6 +565,7 @@ void GCMemcardDirectory::FlushToFile()
 				{
 					GCI.WriteBytes(&m_saves[i].m_gci_header, DENTRY_SIZE);
 					GCI.WriteBytes(m_saves[i].m_save_data.data(), BLOCK_SIZE * m_saves[i].m_save_data.size());
+					GCI.Flush();
 
 					if (GCI.IsGood())
 					{
@@ -564,7 +595,6 @@ void GCMemcardDirectory::FlushToFile()
 				m_saves[i].m_used_blocks.clear();
 			}
 		}
-
 		// Unload the save data for any game that is not running
 		// we could use !m_dirty, but some games have multiple gci files and may not write to them simultaneously
 		// this ensures that the save data for all of the current games gci files are stored in the savestate
@@ -580,6 +610,7 @@ void GCMemcardDirectory::FlushToFile()
 	Read(0, BLOCK_SIZE * MC_FST_BLOCKS, mc);
 	File::IOFile hdrfile(m_SaveDirectory + MC_HDR, "wb");
 	hdrfile.WriteBytes(mc, BLOCK_SIZE * MC_FST_BLOCKS);
+	hdrfile.Flush();
 #endif
 }
 
@@ -619,7 +650,8 @@ bool GCIFile::LoadSaveBlocks()
 		m_save_data.resize(num_blocks);
 		if (!savefile.ReadBytes(m_save_data.data(), num_blocks * BLOCK_SIZE))
 		{
-			PanicAlertT("Failed to read data from gci file %s", m_filename.c_str());
+			//alerts happen when unnecessary...
+			//PanicAlertT("Failed to read data from gci file %s", m_filename.c_str());
 			m_save_data.clear();
 			return false;
 		}

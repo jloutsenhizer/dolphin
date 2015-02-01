@@ -836,7 +836,11 @@ ControlGroupBox::ControlGroupBox(ControllerEmu::ControlGroup* const group, wxWin
 		break;
 	case GROUP_TYPE_BUTTONS:
 		{
-			wxBitmap bitmap(int(12*group->controls.size()+1), 12);
+			// Draw buttons in rows of 8
+			unsigned int button_cols = group->controls.size() > 8 ? 8 : group->controls.size();
+			unsigned int button_rows = ceil((float)group->controls.size() / 8.0f);
+			wxBitmap bitmap(int(12 * button_cols + 1), (12 * button_rows) - (button_rows - 1));
+
 			dc.SelectObject(bitmap);
 			dc.Clear();
 			static_bitmap = new wxStaticBitmap(parent, wxID_ANY, bitmap, wxDefaultPosition, wxDefaultSize, wxBITMAP_TYPE_BMP);
@@ -999,7 +1003,7 @@ GamepadPage::GamepadPage(wxWindow* parent, InputConfig& config, const unsigned i
 	device_cbox = new wxComboBox(this, wxID_ANY, "", wxDefaultPosition, wxSize(64, -1));
 	device_cbox->ToggleWindowStyle(wxTE_PROCESS_ENTER);
 
-	wxButton* refresh_button = new wxButton(this, wxID_ANY, _("Refresh"), wxDefaultPosition, wxSize(60, -1));
+	wxButton* refresh_button = new wxButton(this, wxID_ANY, _("Refresh"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
 
 	device_cbox->Bind(wxEVT_COMBOBOX, &GamepadPage::SetDevice, this);
 	device_cbox->Bind(wxEVT_TEXT_ENTER, &GamepadPage::SetDevice, this);
@@ -1008,8 +1012,8 @@ GamepadPage::GamepadPage(wxWindow* parent, InputConfig& config, const unsigned i
 	device_sbox->Add(device_cbox, 1, wxLEFT|wxRIGHT, 3);
 	device_sbox->Add(refresh_button, 0, wxRIGHT|wxBOTTOM, 3);
 
-	wxButton* const default_button = new wxButton(this, wxID_ANY, _("Default"), wxDefaultPosition, wxSize(48, -1));
-	wxButton* const clearall_button = new wxButton(this, wxID_ANY, _("Clear"), wxDefaultPosition, wxSize(58, -1));
+	wxButton* const default_button = new wxButton(this, wxID_ANY, _("Default"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+	wxButton* const clearall_button = new wxButton(this, wxID_ANY, _("Clear"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
 
 	wxStaticBoxSizer* const clear_sbox = new wxStaticBoxSizer(wxHORIZONTAL, this, _("Reset"));
 	clear_sbox->Add(default_button, 1, wxLEFT, 3);
@@ -1020,9 +1024,9 @@ GamepadPage::GamepadPage(wxWindow* parent, InputConfig& config, const unsigned i
 
 	profile_cbox = new wxComboBox(this, wxID_ANY, "", wxDefaultPosition, wxSize(64, -1));
 
-	wxButton* const pload_btn = new wxButton(this, wxID_ANY, _("Load"), wxDefaultPosition, wxSize(48, -1));
-	wxButton* const psave_btn = new wxButton(this, wxID_ANY, _("Save"), wxDefaultPosition, wxSize(48, -1));
-	wxButton* const pdelete_btn = new wxButton(this, wxID_ANY, _("Delete"), wxDefaultPosition, wxSize(60, -1));
+	wxButton* const pload_btn = new wxButton(this, wxID_ANY, _("Load"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+	wxButton* const psave_btn = new wxButton(this, wxID_ANY, _("Save"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+	wxButton* const pdelete_btn = new wxButton(this, wxID_ANY, _("Delete"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
 
 	pload_btn->Bind(wxEVT_BUTTON, &GamepadPage::LoadProfile, this);
 	psave_btn->Bind(wxEVT_BUTTON, &GamepadPage::SaveProfile, this);
@@ -1055,14 +1059,11 @@ InputConfigDialog::InputConfigDialog(wxWindow* const parent, InputConfig& config
 	, m_config(config)
 {
 	m_pad_notebook = new wxNotebook(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxNB_DEFAULT);
-	for (unsigned int i = 0; i < std::min(config.controllers.size(), (size_t)MAX_WIIMOTES); ++i)
-	{
-		GamepadPage* gp = new GamepadPage(m_pad_notebook, m_config, i, this);
-		m_padpages.push_back(gp);
-		m_pad_notebook->AddPage(gp, wxString::Format("%s %u", wxGetTranslation(StrToWxStr(m_config.gui_name)), 1+i));
-	}
+	GamepadPage* gp = new GamepadPage(m_pad_notebook, m_config, tab_num, this);
+	m_padpages.push_back(gp);
+	m_pad_notebook->AddPage(gp, wxString::Format("%s [%u]", wxGetTranslation(StrToWxStr(m_config.gui_name)), 1 + tab_num));
 
-	m_pad_notebook->SetSelection(tab_num);
+	m_pad_notebook->SetSelection(0);
 
 	UpdateDeviceComboBox();
 	UpdateProfileComboBox();

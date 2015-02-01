@@ -1136,7 +1136,7 @@ DVDCommandResult ExecuteCommand(u32 command_0, u32 command_1, u32 command_2,
 		INFO_LOG(DVDINTERFACE, "DVDLowStopMotor %s %s",
 		         command_1 ? "eject" : "", command_2 ? "kill!" : "");
 
-		if (command_1)
+		if (command_1 && !command_2)
 			EjectDiscCallback(0, 0);
 		break;
 
@@ -1328,7 +1328,7 @@ s64 CalculateRawDiscReadTime(u64 offset, s64 length)
 	// Note that the speed at a track (in bytes per second) is the same as
 	// the radius of that track because of the length unit used.
 	double speed;
-	if (VolumeHandler::IsWii())
+	if (VolumeHandler::IsWiiDisc())
 	{
 		speed = std::sqrt(((average_offset - WII_DISC_LOCATION_1_OFFSET) /
 			WII_BYTES_PER_AREA_UNIT + WII_DISC_AREA_UP_TO_LOCATION_1) / PI);

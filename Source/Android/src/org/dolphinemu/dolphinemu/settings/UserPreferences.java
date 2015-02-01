@@ -10,6 +10,7 @@ import org.dolphinemu.dolphinemu.NativeLibrary;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.preference.PreferenceManager;
 
 /**
@@ -39,11 +40,15 @@ public final class UserPreferences
 		SharedPreferences.Editor editor = prefs.edit();
 
 		// Add the settings.
-		editor.putString("cpuCorePref",   getConfig("Dolphin.ini", "Core", "CPUCore", "3"));
+		if (Build.CPU_ABI.contains("arm64"))
+			editor.putString("cpuCorePref",   getConfig("Dolphin.ini", "Core", "CPUCore", "4"));
+		else
+			editor.putString("cpuCorePref",   getConfig("Dolphin.ini", "Core", "CPUCore", "3"));
+
 		editor.putBoolean("dualCorePref", getConfig("Dolphin.ini", "Core", "CPUThread", "False").equals("True"));
 		editor.putBoolean("fastmemPref", getConfig("Dolphin.ini", "Core", "Fastmem", "False").equals("True"));
 
-		editor.putString("gpuPref",               getConfig("Dolphin.ini", "Core", "GFXBackend", "Software Renderer"));
+		editor.putString("gpuPref",               getConfig("Dolphin.ini", "Core", "GFXBackend", "OGL"));
 		editor.putBoolean("showFPS",              getConfig("gfx_opengl.ini", "Settings", "ShowFPS", "False").equals("True"));
 		editor.putBoolean("drawOnscreenControls", getConfig("Dolphin.ini", "Android", "ScreenControls", "True").equals("True"));
 
@@ -103,6 +108,7 @@ public final class UserPreferences
 
 		editor.putBoolean("disableDestinationAlpha", getConfig("gfx_opengl.ini", "Settings", "DstAlphaPass", "False").equals("True"));
 		editor.putBoolean("fastDepthCalculation",    getConfig("gfx_opengl.ini", "Settings", "FastDepthCalc", "True").equals("True"));
+		editor.putString("aspectRatio", getConfig("gfx_opengl.ini", "Settings", "AspectRatio", "0"));
 
 		// Apply the changes.
 		editor.apply();
@@ -162,6 +168,9 @@ public final class UserPreferences
 		// Whether or not to use fast depth calculation.
 		boolean useFastDepthCalc = prefs.getBoolean("fastDepthCalculation", true);
 
+		// Aspect ratio selection
+		String aspectRatio = prefs.getString("aspectRatio", "0");
+
 		// Internal resolution. Falls back to 1x Native upon error.
 		String internalResolution = prefs.getString("internalResolution", "2");
 
@@ -211,6 +220,7 @@ public final class UserPreferences
 		// Video Hack Settings
 		NativeLibrary.SetConfig("gfx_opengl.ini", "Hacks", "EFBAccessEnable", skipEFBAccess ? "False" : "True");
 		NativeLibrary.SetConfig("gfx_opengl.ini", "Hacks", "EFBEmulateFormatChanges", ignoreFormatChanges ? "True" : "False");
+		NativeLibrary.SetConfig("gfx_opengl.ini", "Settings", "AspectRatio", aspectRatio);
 
 		// Set EFB Copy Method 
 		if (efbCopyMethod.equals("Off"))

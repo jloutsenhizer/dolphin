@@ -63,8 +63,8 @@ static const struct
 	{ "BalanceBoardConnect",348 /* WXK_F9 */,     1 /* wxMOD_ALT */ },
 #endif
 
-	{ "VolumeUp",            0,                    0 /* wxMOD_NONE */ },
 	{ "VolumeDown",          0,                    0 /* wxMOD_NONE */ },
+	{ "VolumeUp",            0,                    0 /* wxMOD_NONE */ },
 	{ "VolumeToggleMute",    0,                    0 /* wxMOD_NONE */ },
 
 	{ "ToggleIR",            0,                   0 /* wxMOD_NONE */ },
@@ -72,8 +72,8 @@ static const struct
 	{ "ToggleEFBCopies",     0,                   0 /* wxMOD_NONE */ },
 	{ "ToggleFog",           0,                   0 /* wxMOD_NONE */ },
 	{ "ToggleThrottle",      9 /* '\t' */,        0 /* wxMOD_NONE */ },
-	{ "IncreaseFrameLimit",  0,                   0 /* wxMOD_NONE */ },
 	{ "DecreaseFrameLimit",  0,                   0 /* wxMOD_NONE */ },
+	{ "IncreaseFrameLimit",  0,                   0 /* wxMOD_NONE */ },
 
 	{ "FreelookDecreaseSpeed",49 /* '1' */,       4 /* wxMOD_SHIFT */ },
 	{ "FreelookIncreaseSpeed",50 /* '2' */,       4 /* wxMOD_SHIFT */ },
@@ -86,10 +86,10 @@ static const struct
 	{ "FreelookZoomOut",      83 /* 'S' */,       4 /* wxMOD_SHIFT */ },
 	{ "FreelookReset",        82 /* 'R' */,       4 /* wxMOD_SHIFT */ },
 
-	{ "IncreaseDepth",       0,                   0 /* wxMOD_NONE */ },
 	{ "DecreaseDepth",       0,                   0 /* wxMOD_NONE */ },
-	{ "IncreaseConvergence", 0,                   0 /* wxMOD_NONE */ },
+	{ "IncreaseDepth",       0,                   0 /* wxMOD_NONE */ },
 	{ "DecreaseConvergence", 0,                   0 /* wxMOD_NONE */ },
+	{ "IncreaseConvergence", 0,                   0 /* wxMOD_NONE */ },
 
 	{ "LoadStateSlot1",      340 /* WXK_F1 */,    0 /* wxMOD_NONE */ },
 	{ "LoadStateSlot2",      341 /* WXK_F2 */,    0 /* wxMOD_NONE */ },
@@ -329,6 +329,8 @@ void SConfig::SaveCoreSettings(IniFile& ini)
 	core->Set("Latency", m_LocalCoreStartupParameter.iLatency);
 	core->Set("MemcardAPath", m_strMemoryCardA);
 	core->Set("MemcardBPath", m_strMemoryCardB);
+	core->Set("AgpCartAPath", m_strGbaCartA);
+	core->Set("AgpCartBPath", m_strGbaCartB);
 	core->Set("SlotA", m_EXIDevice[0]);
 	core->Set("SlotB", m_EXIDevice[1]);
 	core->Set("SerialPort1", m_EXIDevice[2]);
@@ -542,6 +544,8 @@ void SConfig::LoadCoreSettings(IniFile& ini)
 	core->Get("CPUCore",      &m_LocalCoreStartupParameter.iCPUCore, SCoreStartupParameter::CORE_JIT64);
 #elif _M_ARM_32
 	core->Get("CPUCore",      &m_LocalCoreStartupParameter.iCPUCore, SCoreStartupParameter::CORE_JITARM);
+#elif _M_ARM_64
+	core->Get("CPUCore",      &m_LocalCoreStartupParameter.iCPUCore, SCoreStartupParameter::CORE_JITARM64);
 #else
 	core->Get("CPUCore",      &m_LocalCoreStartupParameter.iCPUCore, SCoreStartupParameter::CORE_INTERPRETER);
 #endif
@@ -559,6 +563,8 @@ void SConfig::LoadCoreSettings(IniFile& ini)
 	core->Get("Latency",           &m_LocalCoreStartupParameter.iLatency, 2);
 	core->Get("MemcardAPath",      &m_strMemoryCardA);
 	core->Get("MemcardBPath",      &m_strMemoryCardB);
+	core->Get("AgpCartAPath",      &m_strGbaCartA);
+	core->Get("AgpCartBPath",      &m_strGbaCartB);
 	core->Get("SlotA",       (int*)&m_EXIDevice[0], EXIDEVICE_MEMORYCARD);
 	core->Get("SlotB",       (int*)&m_EXIDevice[1], EXIDEVICE_NONE);
 	core->Get("SerialPort1", (int*)&m_EXIDevice[2], EXIDEVICE_NONE);

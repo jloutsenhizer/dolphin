@@ -121,11 +121,10 @@ static VertexLoaderBase* RefreshLoader(int vtx_attr_group, bool preprocess = fal
 		{
 			// search for a cached native vertex format
 			const PortableVertexDeclaration& format = loader->m_native_vtx_decl;
-			auto& native = s_native_vertex_map[format];
+			std::unique_ptr<NativeVertexFormat>& native = s_native_vertex_map[format];
 			if (!native)
 			{
-				auto raw_pointer = g_vertex_manager->CreateNativeVertexFormat();
-				native = std::unique_ptr<NativeVertexFormat>(raw_pointer);
+				native.reset(g_vertex_manager->CreateNativeVertexFormat());
 				native->Initialize(format);
 				native->m_components = loader->m_native_components;
 			}
@@ -139,30 +138,31 @@ static VertexLoaderBase* RefreshLoader(int vtx_attr_group, bool preprocess = fal
 	return loader;
 }
 
-int RunVertices(int vtx_attr_group, int primitive, int count, DataReader src, bool skip_drawing)
+int RunVertices(int vtx_attr_group, int primitive, int count, DataReader src, bool skip_drawing, bool is_preprocess)
 {
 	if (!count)
 		return 0;
 
-	VertexLoaderBase* loader = RefreshLoader(vtx_attr_group);
+	VertexLoaderBase* loader = RefreshLoader(vtx_attr_group, is_preprocess);
 
 	int size = count * loader->m_VertexSize;
 	if ((int)src.size() < size)
 		return -1;
 
-	if (skip_drawing || (bpmem.genMode.cullmode == GenMode::CULL_ALL && primitive < 5))
-	{
-		// if cull mode is CULL_ALL, ignore triangles and quads
+	if (skip_drawing || is_preprocess)
 		return size;
-	}
 
 	// If the native vertex format changed, force a flush.
 	if (loader->m_native_vertex_format != s_current_vtx_fmt)
 		VertexManager::Flush();
 	s_current_vtx_fmt = loader->m_native_vertex_format;
 
+	// if cull mode is CULL_ALL, tell VertexManager to skip triangles and quads.
+	// They still need to go through vertex loading, because we need to calculate a zfreeze refrence slope.
+	bool cullall = (bpmem.genMode.cullmode == GenMode::CULL_ALL && primitive < 5);
+
 	DataReader dst = VertexManager::PrepareForAdditionalData(primitive, count,
-			loader->m_native_vtx_decl.stride);
+			loader->m_native_vtx_decl.stride, cullall);
 
 	count = loader->RunVertices(primitive, count, src, dst);
 
@@ -173,11 +173,6 @@ int RunVertices(int vtx_attr_group, int primitive, int count, DataReader src, bo
 	ADDSTAT(stats.thisFrame.numPrims, count);
 	INCSTAT(stats.thisFrame.numPrimitiveJoins);
 	return size;
-}
-
-int GetVertexSize(int vtx_attr_group, bool preprocess)
-{
-	return RefreshLoader(vtx_attr_group, preprocess)->m_VertexSize;
 }
 
 NativeVertexFormat* GetCurrentVertexFormat()

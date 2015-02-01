@@ -61,8 +61,8 @@ GameFile::GameFile(const QString& fileName)
 
 		if (volume != nullptr)
 		{
-			if (!DiscIO::IsVolumeWadFile(volume))
-				m_platform = DiscIO::IsVolumeWiiDisc(volume) ? WII_DISC : GAMECUBE_DISC;
+			if (!volume->IsWadFile())
+				m_platform = volume->IsWiiDisc() ? WII_DISC : GAMECUBE_DISC;
 			else
 				m_platform = WII_WAD;
 
@@ -299,13 +299,13 @@ QString GameFile::GetName(int index) const
 
 const QString GameFile::GetWiiFSPath() const
 {
-	DiscIO::IVolume* volume = DiscIO::CreateVolumeFromFilename(m_file_name.toStdString());
+	std::unique_ptr<DiscIO::IVolume> volume(DiscIO::CreateVolumeFromFilename(m_file_name.toStdString()));
 	QString ret;
 
 	if (volume == nullptr)
 		return ret;
 
-	if (DiscIO::IsVolumeWiiDisc(volume) || DiscIO::IsVolumeWadFile(volume))
+	if (volume->IsWiiDisc() || volume->IsWadFile())
 	{
 		std::string path;
 		u64 title;
@@ -323,7 +323,6 @@ const QString GameFile::GetWiiFSPath() const
 		else
 			ret = QString::fromStdString(path);
 	}
-	delete volume;
 
 	return ret;
 }

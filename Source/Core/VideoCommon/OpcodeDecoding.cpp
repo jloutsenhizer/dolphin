@@ -137,7 +137,7 @@ u8* OpcodeDecoder_Run(DataReader src, u32* cycles, bool in_display_list)
 	u8* opcodeStart;
 	while (true)
 	{
-		src.WritePointer(&opcodeStart);
+		opcodeStart = src.GetPointer();
 
 		if (!src.size())
 			goto end;
@@ -265,29 +265,21 @@ u8* OpcodeDecoder_Run(DataReader src, u32* cycles, bool in_display_list)
 				if (src.size() < 2)
 					goto end;
 				u16 num_vertices = src.Read<u16>();
+				int bytes = VertexLoaderManager::RunVertices(
+					cmd_byte & GX_VAT_MASK,   // Vertex loader index (0 - 7)
+					(cmd_byte & GX_PRIMITIVE_MASK) >> GX_PRIMITIVE_SHIFT,
+					num_vertices,
+					src,
+					g_bSkipCurrentFrame,
+					is_preprocess);
 
-				if (is_preprocess)
-				{
-					size_t size = num_vertices * VertexLoaderManager::GetVertexSize(cmd_byte & GX_VAT_MASK, is_preprocess);
-					if (src.size() < size)
-						goto end;
-					src.Skip(size);
-				}
-				else
-				{
-					int bytes = VertexLoaderManager::RunVertices(
-						cmd_byte & GX_VAT_MASK,   // Vertex loader index (0 - 7)
-						(cmd_byte & GX_PRIMITIVE_MASK) >> GX_PRIMITIVE_SHIFT,
-						num_vertices,
-						src,
-						g_bSkipCurrentFrame);
+				if (bytes < 0)
+					goto end;
 
-					if (bytes < 0)
-						goto end;
-					else
-						src.Skip(bytes);
-				}
-				totalCycles += 1600;
+				src.Skip(bytes);
+
+				// 4 GPU ticks per vertex, 3 CPU ticks per GPU tick
+				totalCycles += num_vertices * 4 * 3 + 6;
 			}
 			else
 			{
@@ -301,7 +293,7 @@ u8* OpcodeDecoder_Run(DataReader src, u32* cycles, bool in_display_list)
 		if (!is_preprocess && g_bRecordFifoData && cmd_byte != GX_CMD_CALL_DL)
 		{
 			u8* opcodeEnd;
-			src.WritePointer(&opcodeEnd);
+			opcodeEnd = src.GetPointer();
 			FifoRecorder::GetInstance().WriteGPCommand(opcodeStart, u32(opcodeEnd - opcodeStart));
 		}
 	}

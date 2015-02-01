@@ -33,6 +33,7 @@
 #include "VideoCommon/ImageWrite.h"
 #include "VideoCommon/OnScreenDisplay.h"
 #include "VideoCommon/PixelEngine.h"
+#include "VideoCommon/PixelShaderManager.h"
 #include "VideoCommon/Statistics.h"
 #include "VideoCommon/VertexShaderManager.h"
 #include "VideoCommon/VideoConfig.h"
@@ -231,6 +232,7 @@ Renderer::Renderer(void *&window_handle)
 	s_last_stereo_mode = g_ActiveConfig.iStereoMode > 0;
 	s_last_xfb_mode = g_ActiveConfig.bUseRealXFB;
 	CalculateTargetSize(s_backbuffer_width, s_backbuffer_height);
+	PixelShaderManager::SetEfbScaleChanged();
 
 	SetupDeviceObjects();
 
@@ -743,10 +745,10 @@ void Renderer::SwapImpl(u32 xfbAddr, u32 fbWidth, u32 fbStride, u32 fbHeight, co
 			int xfbWidth = xfbSource->srcWidth;
 			int hOffset = ((s32)xfbSource->srcAddr - (s32)xfbAddr) / ((s32)fbStride * 2);
 
-			drawRc.top = targetRc.top + hOffset * targetRc.GetHeight() / fbHeight;
-			drawRc.bottom = targetRc.top + (hOffset + xfbHeight) * targetRc.GetHeight() / fbHeight;
-			drawRc.left = targetRc.left + (targetRc.GetWidth() - xfbWidth * targetRc.GetWidth() / fbStride) / 2;
-			drawRc.right = targetRc.left + (targetRc.GetWidth() + xfbWidth * targetRc.GetWidth() / fbStride) / 2;
+			drawRc.top = targetRc.top + hOffset * targetRc.GetHeight() / (s32)fbHeight;
+			drawRc.bottom = targetRc.top + (hOffset + xfbHeight) * targetRc.GetHeight() / (s32)fbHeight;
+			drawRc.left = targetRc.left + (targetRc.GetWidth() - xfbWidth * targetRc.GetWidth() / (s32)fbStride) / 2;
+			drawRc.right = targetRc.left + (targetRc.GetWidth() + xfbWidth * targetRc.GetWidth() / (s32)fbStride) / 2;
 
 			// The following code disables auto stretch.  Kept for reference.
 			// scale draw area for a 1 to 1 pixel mapping with the draw target
@@ -862,7 +864,7 @@ void Renderer::SwapImpl(u32 xfbAddr, u32 fbWidth, u32 fbStride, u32 fbHeight, co
 	SetWindowSize(fbStride, fbHeight);
 
 	const bool windowResized = CheckForResize();
-	const bool fullscreen = g_ActiveConfig.bFullscreen &&
+	const bool fullscreen = g_ActiveConfig.bFullscreen && !g_ActiveConfig.bBorderlessFullscreen &&
 		!SConfig::GetInstance().m_LocalCoreStartupParameter.bRenderToMain;
 
 	bool xfbchanged = s_last_xfb_mode != g_ActiveConfig.bUseRealXFB;
@@ -885,26 +887,21 @@ void Renderer::SwapImpl(u32 xfbAddr, u32 fbWidth, u32 fbStride, u32 fbHeight, co
 	{
 		if (fullscreen && !exclusive_mode)
 		{
+			if (g_Config.bExclusiveMode)
+				OSD::AddMessage("Lost exclusive fullscreen.");
+
 			// Exclusive fullscreen is enabled in the configuration, but we're
 			// not in exclusive mode. Either exclusive fullscreen was turned on
 			// or the render frame lost focus. When the render frame is in focus
 			// we can apply exclusive mode.
 			fullscreen_changed = Host_RendererHasFocus();
+
+			g_Config.bExclusiveMode = false;
 		}
-		else if (!fullscreen)
+		else if (!fullscreen && exclusive_mode)
 		{
-			if (exclusive_mode)
-			{
-				// Exclusive fullscreen is disabled, but we're still in exclusive mode.
-				fullscreen_changed = true;
-			}
-			else if (!g_ActiveConfig.bBorderlessFullscreen && Host_RendererIsFullscreen())
-			{
-				// Exclusive fullscreen is disabled and we are no longer in exclusive
-				// mode. Thus we can now safely notify the UI to exit fullscreen. But
-				// we should only do so if borderless fullscreen mode is disabled.
-				Host_RequestFullscreen(false);
-			}
+			// Exclusive fullscreen is disabled, but we're still in exclusive mode.
+			fullscreen_changed = true;
 		}
 	}
 
@@ -924,7 +921,18 @@ void Renderer::SwapImpl(u32 xfbAddr, u32 fbWidth, u32 fbStride, u32 fbHeight, co
 		{
 			// Apply fullscreen state
 			if (fullscreen_changed)
+			{
+				g_Config.bExclusiveMode = fullscreen;
+
+				if (fullscreen)
+					OSD::AddMessage("Entered exclusive fullscreen.");
+
 				D3D::SetFullscreenState(fullscreen);
+
+				// If fullscreen is disabled we can safely notify the UI to exit fullscreen.
+				if (!g_ActiveConfig.bFullscreen)
+					Host_RequestFullscreen(false);
+			}
 
 			// TODO: Aren't we still holding a reference to the back buffer right now?
 			D3D::Reset();
@@ -939,6 +947,8 @@ void Renderer::SwapImpl(u32 xfbAddr, u32 fbWidth, u32 fbStride, u32 fbHeight, co
 		s_last_efb_scale = g_ActiveConfig.iEFBScale;
 		s_last_stereo_mode = g_ActiveConfig.iStereoMode > 0;
 		CalculateTargetSize(s_backbuffer_width, s_backbuffer_height);
+
+		PixelShaderManager::SetEfbScaleChanged();
 
 		D3D::context->OMSetRenderTargets(1, &D3D::GetBackBuffer()->GetRTV(), nullptr);
 

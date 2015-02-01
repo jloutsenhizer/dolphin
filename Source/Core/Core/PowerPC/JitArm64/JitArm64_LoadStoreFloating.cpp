@@ -94,9 +94,19 @@ void JitArm64::lfXX(UGeckoInstruction inst)
 		{
 			if (offset_reg == -1)
 			{
-				MOVI2R(addr_reg, offset);
-				ADD(addr_reg, addr_reg, gpr.R(a));
-			}
+				if (offset >= 0 && offset < 4096)
+				{
+					ADD(addr_reg, gpr.R(a), offset);
+				}
+				else if (offset < 0 && offset > -4096)
+				{
+					SUB(addr_reg, gpr.R(a), std::abs(offset));
+				}
+				else
+				{
+					MOVI2R(addr_reg, offset);
+					ADD(addr_reg, addr_reg, gpr.R(a));
+				}			}
 			else
 			{
 				ADD(addr_reg, gpr.R(offset_reg), gpr.R(a));
@@ -114,9 +124,19 @@ void JitArm64::lfXX(UGeckoInstruction inst)
 			}
 			else if (a)
 			{
-				MOVI2R(addr_reg, offset);
-				ADD(addr_reg, addr_reg, gpr.R(a));
-			}
+				if (offset >= 0 && offset < 4096)
+				{
+					ADD(addr_reg, gpr.R(a), offset);
+				}
+				else if (offset < 0 && offset > -4096)
+				{
+					SUB(addr_reg, gpr.R(a), std::abs(offset));
+				}
+				else
+				{
+					MOVI2R(addr_reg, offset);
+					ADD(addr_reg, addr_reg, gpr.R(a));
+				}			}
 			else
 			{
 				is_immediate = true;
@@ -156,11 +176,10 @@ void JitArm64::lfXX(UGeckoInstruction inst)
 
 	BitSet32 regs_in_use = gpr.GetCallerSavedUsed();
 	BitSet32 fprs_in_use = fpr.GetCallerSavedUsed();
-	BitSet32 fpr_ignore_mask(0);
 	regs_in_use[W0] = 0;
 	regs_in_use[W30] = 0;
 	fprs_in_use[0] = 0; // Q0
-	fpr_ignore_mask[VD - Q0] = 1;
+	fprs_in_use[VD - Q0] = 0;
 
 	if (is_immediate && Memory::IsRAMAddress(imm_addr))
 	{
@@ -176,7 +195,7 @@ void JitArm64::lfXX(UGeckoInstruction inst)
 			SConfig::GetInstance().m_LocalCoreStartupParameter.bFastmem,
 			SConfig::GetInstance().m_LocalCoreStartupParameter.bFastmem,
 			VD, XA);
-		m_float_emit.ABI_PopRegisters(fprs_in_use, fpr_ignore_mask);
+		m_float_emit.ABI_PopRegisters(fprs_in_use);
 		ABI_PopRegisters(regs_in_use);
 	}
 
@@ -240,11 +259,7 @@ void JitArm64::stfXX(UGeckoInstruction inst)
 	bool is_immediate = false;
 
 	ARM64Reg V0 = fpr.R(inst.FS);
-	ARM64Reg addr_reg;
-	if (flags & BackPatchInfo::FLAG_SIZE_F64)
-		addr_reg = W0;
-	else
-		addr_reg = W1;
+	ARM64Reg addr_reg = W1;
 
 	gpr.Lock(W0, W1, W30);
 	fpr.Lock(Q0);
@@ -266,8 +281,19 @@ void JitArm64::stfXX(UGeckoInstruction inst)
 		{
 			if (offset_reg == -1)
 			{
-				MOVI2R(addr_reg, offset);
-				ADD(addr_reg, addr_reg, gpr.R(a));
+				if (offset >= 0 && offset < 4096)
+				{
+					ADD(addr_reg, gpr.R(a), offset);
+				}
+				else if (offset < 0 && offset > -4096)
+				{
+					SUB(addr_reg, gpr.R(a), std::abs(offset));
+				}
+				else
+				{
+					MOVI2R(addr_reg, offset);
+					ADD(addr_reg, addr_reg, gpr.R(a));
+				}
 			}
 			else
 			{
@@ -286,9 +312,19 @@ void JitArm64::stfXX(UGeckoInstruction inst)
 			}
 			else if (a)
 			{
-				MOVI2R(addr_reg, offset);
-				ADD(addr_reg, addr_reg, gpr.R(a));
-			}
+				if (offset >= 0 && offset < 4096)
+				{
+					ADD(addr_reg, gpr.R(a), offset);
+				}
+				else if (offset < 0 && offset > -4096)
+				{
+					SUB(addr_reg, gpr.R(a), std::abs(offset));
+				}
+				else
+				{
+					MOVI2R(addr_reg, offset);
+					ADD(addr_reg, addr_reg, gpr.R(a));
+				}			}
 			else
 			{
 				is_immediate = true;

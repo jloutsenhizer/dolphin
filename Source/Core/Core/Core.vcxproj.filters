@@ -82,6 +82,9 @@
     <Filter Include="HW %28Flipper/Hollywood%29\EXI - Expansion Interface">
       <UniqueIdentifier>{d19f1218-0e28-4f24-a4b3-33fac750a899}</UniqueIdentifier>
     </Filter>
+    <Filter Include="HW %28Flipper/Hollywood%29\GCKeyboard">
+      <UniqueIdentifier>{15452851-6ca5-4520-bbf1-d4b810317be3}</UniqueIdentifier>
+    </Filter>
     <Filter Include="HW %28Flipper/Hollywood%29\GCMemcard">
       <UniqueIdentifier>{d7b3050d-3dd9-4284-969c-c5ad3b3662d9}</UniqueIdentifier>
     </Filter>
@@ -382,6 +385,9 @@
     <ClCompile Include="HW\EXI_DeviceAD16.cpp">
       <Filter>HW %28Flipper/Hollywood%29\EXI - Expansion Interface</Filter>
     </ClCompile>
+    <ClCompile Include="HW\EXI_DeviceAGP.cpp">
+      <Filter>HW %28Flipper/Hollywood%29\EXI - Expansion Interface</Filter>
+    </ClCompile>
     <ClCompile Include="HW\EXI_DeviceAMBaseboard.cpp">
       <Filter>HW %28Flipper/Hollywood%29\EXI - Expansion Interface</Filter>
     </ClCompile>
@@ -449,6 +455,9 @@
       <Filter>HW %28Flipper/Hollywood%29\SI - Serial Interface</Filter>
     </ClCompile>
     <ClCompile Include="HW\SI_DeviceGCSteeringWheel.cpp">
+      <Filter>HW %28Flipper/Hollywood%29\SI - Serial Interface</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\SI_DeviceKeyboard.cpp">
       <Filter>HW %28Flipper/Hollywood%29\SI - Serial Interface</Filter>
     </ClCompile>
     <ClCompile Include="HW\VideoInterface.cpp">
@@ -625,6 +634,9 @@
     <ClCompile Include="PowerPC\SignatureDB.cpp">
       <Filter>PowerPC</Filter>
     </ClCompile>
+    <ClCompile Include="PowerPC\Jit64Common\Jit64AsmCommon.cpp">
+      <Filter>PowerPC\Jit64Common</Filter>
+    </ClCompile>
     <ClCompile Include="PowerPC\JitCommon\Jit_Util.cpp">
       <Filter>PowerPC\JitCommon</Filter>
     </ClCompile>
@@ -706,6 +718,14 @@
     <ClCompile Include="PowerPC\JitILCommon\IR.cpp">
       <Filter>PowerPC\JitILCommon</Filter>
     </ClCompile>
+    <ClCompile Include="HW\SI_GCAdapter.cpp" />
+    <ClCompile Include="PowerPC\JitCommon\JitBackpatch.cpp" />
+    <ClCompile Include="HW\GCKeyboardEmu.cpp">
+      <Filter>HW %28Flipper/Hollywood%29\GCKeyboard</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\GCKeyboard.cpp">
+      <Filter>HW %28Flipper/Hollywood%29\GCKeyboard</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BootManager.h" />
@@ -715,7 +735,6 @@
     <ClInclude Include="CoreTiming.h" />
     <ClInclude Include="ec_wii.h" />
     <ClInclude Include="Host.h" />
-    <ClCompile Include="MachineContext.h" />
     <ClInclude Include="MemTools.h" />
     <ClInclude Include="Movie.h" />
     <ClInclude Include="NetPlayClient.h" />
@@ -901,6 +920,9 @@
     <ClInclude Include="HW\EXI_DeviceAD16.h">
       <Filter>HW %28Flipper/Hollywood%29\EXI - Expansion Interface</Filter>
     </ClInclude>
+    <ClInclude Include="HW\EXI_DeviceAGP.h">
+      <Filter>HW %28Flipper/Hollywood%29\EXI - Expansion Interface</Filter>
+    </ClInclude>
     <ClInclude Include="HW\EXI_DeviceAMBaseboard.h">
       <Filter>HW %28Flipper/Hollywood%29\EXI - Expansion Interface</Filter>
     </ClInclude>
@@ -968,6 +990,9 @@
       <Filter>HW %28Flipper/Hollywood%29\SI - Serial Interface</Filter>
     </ClInclude>
     <ClInclude Include="HW\SI_DeviceGCSteeringWheel.h">
+      <Filter>HW %28Flipper/Hollywood%29\SI - Serial Interface</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SI_DeviceKeyboard.h">
       <Filter>HW %28Flipper/Hollywood%29\SI - Serial Interface</Filter>
     </ClInclude>
     <ClInclude Include="HW\VideoInterface.h">
@@ -1168,6 +1193,9 @@
     <ClInclude Include="PowerPC\SignatureDB.h">
       <Filter>PowerPC</Filter>
     </ClInclude>
+    <ClInclude Include="PowerPC\Jit64Common\Jit64AsmCommon.h">
+      <Filter>PowerPC\Jit64Common</Filter>
+    </ClInclude>
     <ClInclude Include="PowerPC\JitCommon\Jit_Util.h">
       <Filter>PowerPC\JitCommon</Filter>
     </ClInclude>
@@ -1200,6 +1228,14 @@
     </ClInclude>
     <ClInclude Include="PowerPC\JitILCommon\IR.h">
       <Filter>PowerPC\JitILCommon</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\SI_GCAdapter.h" />
+    <ClInclude Include="MachineContext.h" />
+    <ClInclude Include="HW\GCKeyboardEmu.h">
+      <Filter>HW %28Flipper/Hollywood%29\GCKeyboard</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\GCKeyboard.h">
+      <Filter>HW %28Flipper/Hollywood%29\GCKeyboard</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

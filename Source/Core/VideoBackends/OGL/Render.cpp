@@ -43,6 +43,7 @@
 #include "VideoCommon/ImageWrite.h"
 #include "VideoCommon/OnScreenDisplay.h"
 #include "VideoCommon/PixelEngine.h"
+#include "VideoCommon/PixelShaderManager.h"
 #include "VideoCommon/Statistics.h"
 #include "VideoCommon/VertexLoaderManager.h"
 #include "VideoCommon/VertexShaderGen.h"
@@ -328,9 +329,9 @@ static void InitDriverInfo()
 			int glrelease = 0;
 			int major = 0;
 			int minor = 0;
-			// TODO: this is known to be broken on windows
-			// nvidia seems to have removed their driver version from this string, so we can't get it.
-			// hopefully we'll never have to workaround nvidia bugs
+			// TODO: this is known to be broken on Windows
+			// Nvidia seems to have removed their driver version from this string, so we can't get it.
+			// hopefully we'll never have to workaround Nvidia bugs
 			sscanf(g_ogl_config.gl_version, "%d.%d.%d NVIDIA %d.%d", &glmajor, &glminor, &glrelease, &major, &minor);
 			version = 100*major + minor;
 		}
@@ -473,8 +474,10 @@ Renderer::Renderer()
 	g_ogl_config.bSupportsGLPinnedMemory = GLExtensions::Supports("GL_AMD_pinned_memory");
 	g_ogl_config.bSupportsGLSync = GLExtensions::Supports("GL_ARB_sync");
 	g_ogl_config.bSupportsGLBaseVertex = GLExtensions::Supports("GL_ARB_draw_elements_base_vertex") ||
-	                                     GLExtensions::Supports("GL_EXT_draw_elements_base_vertex");
-	g_ogl_config.bSupportsGLBufferStorage = GLExtensions::Supports("GL_ARB_buffer_storage");
+	                                     GLExtensions::Supports("GL_EXT_draw_elements_base_vertex") ||
+	                                     GLExtensions::Supports("GL_OES_draw_elements_base_vertex");
+	g_ogl_config.bSupportsGLBufferStorage = GLExtensions::Supports("GL_ARB_buffer_storage") ||
+	                                        GLExtensions::Supports("GL_EXT_buffer_storage");;
 	g_ogl_config.bSupportsMSAA = GLExtensions::Supports("GL_ARB_texture_multisample");
 	g_ogl_config.bSupportSampleShading = GLExtensions::Supports("GL_ARB_sample_shading");
 	g_ogl_config.bSupportOGL31 = GLExtensions::Version() >= 310;
@@ -554,7 +557,7 @@ Renderer::Renderer()
 		// It also isn't useful as we don't render anything to the default framebuffer.
 		// We also try to get a non-msaa fb, so this only happens when forced by the driver.
 		PanicAlert("MSAA on default framebuffer isn't supported.\n"
-			"Please avoid forcing dolphin to use MSAA by the driver.\n"
+			"Please avoid forcing Dolphin to use MSAA by the driver.\n"
 			"%d samples on default framebuffer found.", samples);
 		bSuccess = false;
 	}
@@ -615,6 +618,8 @@ Renderer::Renderer()
 
 	s_last_efb_scale = g_ActiveConfig.iEFBScale;
 	CalculateTargetSize(s_backbuffer_width, s_backbuffer_height);
+
+	PixelShaderManager::SetEfbScaleChanged();
 
 	// Because of the fixed framebuffer size we need to disable the resolution
 	// options while running
@@ -1480,10 +1485,10 @@ void Renderer::SwapImpl(u32 xfbAddr, u32 fbWidth, u32 fbStride, u32 fbHeight, co
 				int xfbWidth = xfbSource->srcWidth;
 				int hOffset = ((s32)xfbSource->srcAddr - (s32)xfbAddr) / ((s32)fbStride * 2);
 
-				drawRc.top = flipped_trc.top - hOffset * flipped_trc.GetHeight() / fbHeight;
-				drawRc.bottom = flipped_trc.top - (hOffset + xfbHeight) * flipped_trc.GetHeight() / fbHeight;
-				drawRc.left = flipped_trc.left + (flipped_trc.GetWidth() - xfbWidth * flipped_trc.GetWidth() / fbStride) / 2;
-				drawRc.right = flipped_trc.left + (flipped_trc.GetWidth() + xfbWidth * flipped_trc.GetWidth() / fbStride) / 2;
+				drawRc.top = flipped_trc.top - hOffset * flipped_trc.GetHeight() / (s32)fbHeight;
+				drawRc.bottom = flipped_trc.top - (hOffset + xfbHeight) * flipped_trc.GetHeight() / (s32)fbHeight;
+				drawRc.left = flipped_trc.left + (flipped_trc.GetWidth() - xfbWidth * flipped_trc.GetWidth() / (s32)fbStride) / 2;
+				drawRc.right = flipped_trc.left + (flipped_trc.GetWidth() + xfbWidth * flipped_trc.GetWidth() / (s32)fbStride) / 2;
 
 				// The following code disables auto stretch.  Kept for reference.
 				// scale draw area for a 1 to 1 pixel mapping with the draw target
@@ -1679,6 +1684,8 @@ void Renderer::SwapImpl(u32 xfbAddr, u32 fbWidth, u32 fbStride, u32 fbHeight, co
 			delete g_framebuffer_manager;
 			g_framebuffer_manager = new FramebufferManager(s_target_width, s_target_height,
 				s_MSAASamples);
+
+			PixelShaderManager::SetEfbScaleChanged();
 		}
 	}
 

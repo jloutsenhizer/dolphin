@@ -210,12 +210,11 @@ bool CBoot::BootUp()
 	// GCM and Wii
 	case SCoreStartupParameter::BOOT_ISO:
 	{
-		DiscIO::IVolume* pVolume = DiscIO::CreateVolumeFromFilename(_StartupPara.m_strFilename);
+		std::unique_ptr<DiscIO::IVolume> pVolume(DiscIO::CreateVolumeFromFilename(_StartupPara.m_strFilename));
 		if (pVolume == nullptr)
 			break;
 
-		bool isoWii = DiscIO::IsVolumeWiiDisc(pVolume);
-		if (isoWii != _StartupPara.bWii)
+		if (pVolume->IsWiiDisc() != _StartupPara.bWii)
 		{
 			PanicAlertT("Warning - starting ISO in wrong console mode!");
 		}
@@ -237,7 +236,7 @@ bool CBoot::BootUp()
 		}
 
 
-		_StartupPara.bWii = VolumeHandler::IsWii();
+		_StartupPara.bWii = VolumeHandler::IsWiiDisc();
 
 		// HLE BS2 or not
 		if (_StartupPara.bHLE_BS2)
@@ -268,13 +267,11 @@ bool CBoot::BootUp()
 			}
 		}
 
-		/* Try to load the symbol map if there is one, and then scan it for
-			and eventually replace code */
+		// Try to load the symbol map if there is one, and then scan it for
+		// and eventually replace code
 		if (LoadMapFromFilename())
 			HLE::PatchFunctions();
 
-		// We don't need the volume any more
-		delete pVolume;
 		break;
 	}
 
@@ -295,7 +292,7 @@ bool CBoot::BootUp()
 		{
 			BS2Success = EmulatedBS2(dolWii);
 		}
-		else if (!VolumeHandler::IsWii() && !_StartupPara.m_strDefaultISO.empty())
+		else if (!VolumeHandler::IsWiiDisc() && !_StartupPara.m_strDefaultISO.empty())
 		{
 			VolumeHandler::SetVolumeName(_StartupPara.m_strDefaultISO);
 			BS2Success = EmulatedBS2(dolWii);
@@ -325,58 +322,34 @@ bool CBoot::BootUp()
 	// ELF
 	case SCoreStartupParameter::BOOT_ELF:
 	{
-		if (!File::Exists(_StartupPara.m_strFilename))
-		{
-			PanicAlertT("The file you specified (%s) does not exist",
-				_StartupPara.m_strFilename.c_str());
-			return false;
-		}
-
-		// Check if we have gotten a Wii file or not
-		bool elfWii = IsElfWii(_StartupPara.m_strFilename);
-		if (elfWii != _StartupPara.bWii)
-		{
-			PanicAlertT("Warning - starting ELF in wrong console mode!");
-		}
-
-		bool BS2Success = false;
-
-		if (elfWii)
-		{
-			BS2Success = EmulatedBS2(elfWii);
-		}
-		else if (!VolumeHandler::IsWii() && !_StartupPara.m_strDefaultISO.empty())
-		{
-			VolumeHandler::SetVolumeName(_StartupPara.m_strDefaultISO);
-			BS2Success = EmulatedBS2(elfWii);
-		}
-
 		// load image or create virtual drive from directory
 		if (!_StartupPara.m_strDVDRoot.empty())
 		{
 			NOTICE_LOG(BOOT, "Setting DVDRoot %s", _StartupPara.m_strDVDRoot.c_str());
-			// TODO: auto-convert elf to dol, so we can load them :)
-			VolumeHandler::SetVolumeDirectory(_StartupPara.m_strDVDRoot, elfWii);
-			BS2Success = EmulatedBS2(elfWii);
+			VolumeHandler::SetVolumeDirectory(_StartupPara.m_strDVDRoot, _StartupPara.bWii);
 		}
 		else if (!_StartupPara.m_strDefaultISO.empty())
 		{
 			NOTICE_LOG(BOOT, "Loading default ISO %s", _StartupPara.m_strDefaultISO.c_str());
 			VolumeHandler::SetVolumeName(_StartupPara.m_strDefaultISO);
 		}
-		else VolumeHandler::SetVolumeDirectory(_StartupPara.m_strFilename, elfWii);
+		else
+		{
+			VolumeHandler::SetVolumeDirectory(_StartupPara.m_strFilename, _StartupPara.bWii);
+		}
 
 		DVDInterface::SetDiscInside(VolumeHandler::IsValid());
 
-		if (BS2Success)
-		{
-			HLE::PatchFunctions();
-		}
-		else // Poor man's bootup
-		{
-			Load_FST(elfWii);
-			Boot_ELF(_StartupPara.m_strFilename);
-		}
+		// Poor man's bootup
+		if(_StartupPara.bWii)
+			SetupWiiMemory(DiscIO::IVolume::COUNTRY_UNKNOWN);
+		else
+			EmulatedBS2_GC(true);
+
+		Load_FST(_StartupPara.bWii);
+		if(!Boot_ELF(_StartupPara.m_strFilename))
+			return false;
+
 		UpdateDebugger_MapLoaded();
 		Dolphin_Debugger::AddAutoBreakpoints();
 		break;

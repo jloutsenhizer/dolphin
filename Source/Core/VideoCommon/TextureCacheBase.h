@@ -4,7 +4,9 @@
 
 #pragma once
 
+#include <functional>
 #include <map>
+#include <unordered_map>
 
 #include "Common/CommonTypes.h"
 #include "Common/Thread.h"
@@ -18,13 +20,6 @@ struct VideoConfig;
 class TextureCache
 {
 public:
-	enum TexCacheEntryType
-	{
-		TCET_NORMAL,
-		TCET_EC_VRAM,    // EFB copy which sits in VRAM and is ready to be used
-		TCET_EC_DYNAMIC, // EFB copy which sits in RAM and needs to be decoded before being used
-	};
-
 	struct TCacheEntryConfig
 	{
 		TCacheEntryConfig() : width(0), height(0), levels(1), layers(1), rendertarget(false) {}
@@ -32,6 +27,21 @@ public:
 		u32 width, height;
 		u32 levels, layers;
 		bool rendertarget;
+
+		bool operator == (const TCacheEntryConfig& b) const
+		{
+			return width == b.width && height == b.height && levels == b.levels && layers == b.layers && rendertarget == b.rendertarget;
+		}
+
+		struct Hasher : std::hash<u64>
+		{
+			size_t operator()(const TextureCache::TCacheEntryConfig& c) const
+			{
+				u64 id = (u64)c.rendertarget << 63 | (u64)c.layers << 48 | (u64)c.levels << 32 | (u64)c.height << 16 | (u64)c.width;
+				return std::hash<u64>::operator()(id);
+			}
+		};
+
 	};
 
 	struct TCacheEntryBase
@@ -43,8 +53,6 @@ public:
 		u32 size_in_bytes;
 		u64 hash;
 		u32 format;
-
-		enum TexCacheEntryType type;
 
 		unsigned int native_width, native_height; // Texture dimensions from the GameCube's point of view
 		unsigned int native_levels;
@@ -87,7 +95,7 @@ public:
 
 		bool OverlapsMemoryRange(u32 range_address, u32 range_size) const;
 
-		bool IsEfbCopy() { return (type == TCET_EC_VRAM || type == TCET_EC_DYNAMIC); }
+		bool IsEfbCopy() { return config.rendertarget; }
 	};
 
 	virtual ~TextureCache(); // needs virtual for DX11 dtor
@@ -102,11 +110,8 @@ public:
 	static void InvalidateRange(u32 start_address, u32 size);
 	static void MakeRangeDynamic(u32 start_address, u32 size);
 	static void ClearRenderTargets(); // currently only used by OGL
-	static bool Find(u32 start_address, u64 hash);
 
-	virtual TCacheEntryBase* CreateTexture(unsigned int width, unsigned int height,
-		unsigned int tex_levels, PC_TexFormat pcfmt) = 0;
-	virtual TCacheEntryBase* CreateRenderTargetTexture(unsigned int scaled_tex_w, unsigned int scaled_tex_h, unsigned int layers) = 0;
+	virtual TCacheEntryBase* CreateTexture(const TCacheEntryConfig& config) = 0;
 
 	virtual void CompileShaders() = 0; // currently only implemented by OGL
 	virtual void DeleteShaders() = 0; // currently only implemented by OGL
@@ -127,14 +132,14 @@ private:
 	static void DumpTexture(TCacheEntryBase* entry, std::string basename, unsigned int level);
 	static void CheckTempSize(size_t required_size);
 
-	static TCacheEntryBase* AllocateRenderTarget(unsigned int width, unsigned int height, unsigned int layers);
-	static void FreeRenderTarget(TCacheEntryBase* entry);
+	static TCacheEntryBase* AllocateTexture(const TCacheEntryConfig& config);
+	static void FreeTexture(TCacheEntryBase* entry);
 
 	typedef std::map<u32, TCacheEntryBase*> TexCache;
-	typedef std::vector<TCacheEntryBase*> RenderTargetPool;
+	typedef std::unordered_multimap<TCacheEntryConfig, TCacheEntryBase*, TCacheEntryConfig::Hasher> TexPool;
 
 	static TexCache textures;
-	static RenderTargetPool render_target_pool;
+	static TexPool texture_pool;
 
 	// Backup configuration values
 	static struct BackupConfig

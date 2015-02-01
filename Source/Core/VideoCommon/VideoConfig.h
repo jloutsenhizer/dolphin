@@ -67,6 +67,7 @@ struct VideoConfig final
 	// General
 	bool bVSync;
 	bool bFullscreen;
+	bool bExclusiveMode;
 	bool bRunning;
 	bool bWidescreenHack;
 	int iAspectRatio;
@@ -102,6 +103,7 @@ struct VideoConfig final
 	// Utility
 	bool bDumpTextures;
 	bool bHiresTextures;
+	bool bConvertHiresTextures;
 	bool bDumpEFBTarget;
 	bool bUseFFV1;
 	bool bFreeLook;
@@ -112,7 +114,6 @@ struct VideoConfig final
 	bool bPerfQueriesEnable;
 
 	bool bEFBCopyEnable;
-	bool bEFBCopyCacheEnable;
 	bool bEFBEmulateFormatChanges;
 	bool bCopyEFBToTexture;
 	bool bCopyEFBScaled;
@@ -145,6 +146,7 @@ struct VideoConfig final
 		std::vector<std::string> Adapters; // for D3D
 		std::vector<std::string> AAModes;
 		std::vector<std::string> PPShaders; // post-processing shaders
+		std::vector<std::string> AnaglyphShaders; // anaglyph shaders
 
 		bool bSupportsExclusiveFullscreen;
 		bool bSupportsDualSourceBlend;
@@ -156,6 +158,7 @@ struct VideoConfig final
 		bool bSupportsBindingLayout; // Needed by ShaderGen, so must stay in VideoCommon
 		bool bSupportsBBox;
 		bool bSupportsGSInstancing; // Needed by GeometryShaderGen, so must stay in VideoCommon
+		bool bSupportsPostProcessing;
 	} backend_info;
 
 	// Utility

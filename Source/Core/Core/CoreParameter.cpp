@@ -98,7 +98,7 @@ void SCoreStartupParameter::LoadDefaults()
 	bJITOff = false; // debugger only settings
 	bJITLoadStoreOff = false;
 	bJITLoadStoreFloatingOff = false;
-	bJITLoadStorePairedOff = false; // XXX not 64-bit clean
+	bJITLoadStorePairedOff = false;
 	bJITFloatingPointOff = false;
 	bJITIntegerOff = false;
 	bJITPairedOff = false;
@@ -153,7 +153,7 @@ bool SCoreStartupParameter::AutoSetup(EBootBS2 _BootBS2)
 				m_strRevisionSpecificUniqueID = pVolume->GetRevisionSpecificUniqueID();
 
 				// Check if we have a Wii disc
-				bWii = DiscIO::IsVolumeWiiDisc(pVolume.get());
+				bWii = pVolume.get()->IsWiiDisc();
 				switch (pVolume->GetCountry())
 				{
 				case DiscIO::IVolume::COUNTRY_USA:

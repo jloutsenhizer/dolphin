@@ -9,6 +9,7 @@ set(SRCS	ActionReplay.cpp
 			ec_wii.cpp
 			GeckoCodeConfig.cpp
 			GeckoCode.cpp
+			HotkeyManager.cpp
 			MemTools.cpp
 			Movie.cpp
 			NetPlayClient.cpp
@@ -108,7 +109,6 @@ set(SRCS	ActionReplay.cpp
 			HW/GPFifo.cpp
 			HW/HW.cpp
 			HW/Memmap.cpp
-			HW/MemmapFunctions.cpp
 			HW/MemoryInterface.cpp
 			HW/MMIO.cpp
 			HW/ProcessorInterface.cpp
@@ -152,6 +152,7 @@ set(SRCS	ActionReplay.cpp
 			IPC_HLE/WII_IPC_HLE_Device_usb_kbd.cpp
 			IPC_HLE/WII_IPC_HLE_WiiMote.cpp
 			IPC_HLE/WiiMote_HID_Attr.cpp
+			PowerPC/MMU.cpp
 			PowerPC/PowerPC.cpp
 			PowerPC/PPCAnalyst.cpp
 			PowerPC/PPCCache.cpp

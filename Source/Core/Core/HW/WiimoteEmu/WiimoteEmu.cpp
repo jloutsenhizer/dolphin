@@ -32,13 +32,14 @@ auto const PI = TAU / 2.0;
 namespace WiimoteEmu
 {
 
-/* An example of a factory default first bytes of the Eeprom memory. There are differences between
-   different Wiimotes, my Wiimote had different neutral values for the accelerometer. */
 static const u8 eeprom_data_0[] = {
 	// IR, maybe more
 	// assuming last 2 bytes are checksum
 	0xA1, 0xAA, 0x8B, 0x99, 0xAE, 0x9E, 0x78, 0x30, 0xA7, /*0x74, 0xD3,*/ 0x00, 0x00, // messing up the checksum on purpose
 	0xA1, 0xAA, 0x8B, 0x99, 0xAE, 0x9E, 0x78, 0x30, 0xA7, /*0x74, 0xD3,*/ 0x00, 0x00,
+	// Accelerometer
+	ACCEL_ZERO_G, ACCEL_ZERO_G, ACCEL_ZERO_G, 0, ACCEL_ONE_G, ACCEL_ONE_G, ACCEL_ONE_G, 0, 0, 0,
+	ACCEL_ZERO_G, ACCEL_ZERO_G, ACCEL_ZERO_G, 0, ACCEL_ONE_G, ACCEL_ONE_G, ACCEL_ONE_G, 0, 0, 0,
 };
 
 static const u8 motion_plus_id[] = { 0x00, 0x00, 0xA6, 0x20, 0x00, 0x05 };
@@ -396,30 +397,39 @@ void Wiimote::GetAccelData(u8* const data, const ReportFeatures& rptf)
 	wm_accel& accel = *(wm_accel*)(data + rptf.accel);
 	wm_buttons& core = *(wm_buttons*)(data + rptf.core);
 
-	u16 x = (u16)(m_accel.x * ACCEL_RANGE + ACCEL_ZERO_G);
-	u16 y = (u16)(m_accel.y * ACCEL_RANGE + ACCEL_ZERO_G);
-	u16 z = (u16)(m_accel.z * ACCEL_RANGE + ACCEL_ZERO_G);
+	// We now use 2 bits more precision, so multiply by 4 before converting to int
+	s16 x = (s16)(4 * (m_accel.x * ACCEL_RANGE + ACCEL_ZERO_G));
+	s16 y = (s16)(4 * (m_accel.y * ACCEL_RANGE + ACCEL_ZERO_G));
+	s16 z = (s16)(4 * (m_accel.z * ACCEL_RANGE + ACCEL_ZERO_G));
 
 	if (x > 1024)
 		x = 1024;
+	else if (x < 0)
+		x = 0;
 	if (y > 1024)
 		y = 1024;
+	else if (y < 0)
+		y = 0;
 	if (z > 1024)
 		z = 1024;
+	else if (z < 0)
+		z = 0;
 
-	accel.x = x & 0xFF;
-	accel.y = y & 0xFF;
-	accel.z = z & 0xFF;
+	accel.x = (x >> 2) & 0xFF;
+	accel.y = (y >> 2) & 0xFF;
+	accel.z = (z >> 2) & 0xFF;
 
-	core.acc_x_lsb = x >> 8 & 0x3;
-	core.acc_y_lsb = y >> 8 & 0x1;
-	core.acc_z_lsb = z >> 8 & 0x1;
+	core.acc_x_lsb = x & 0x3;
+	core.acc_y_lsb = (y >> 1) & 0x1;
+	core.acc_z_lsb = (z >> 1) & 0x1;
 }
-#define kCutoffFreq 5.0
-inline void LowPassFilter(double & var, double newval, double period)
+
+inline void LowPassFilter(double& var, double newval, double period)
 {
-	double RC=1.0/kCutoffFreq;
-	double alpha=period/(period+RC);
+	static const double CUTOFF_FREQUENCY = 5.0;
+
+	double RC = 1.0 / CUTOFF_FREQUENCY;
+	double alpha = period / (period + RC);
 	var = newval * alpha + var * (1.0 - alpha);
 }
 

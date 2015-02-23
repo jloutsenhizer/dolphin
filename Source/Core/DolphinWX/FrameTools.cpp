@@ -46,6 +46,7 @@
 #include "Core/Core.h"
 #include "Core/CoreParameter.h"
 #include "Core/Host.h"
+#include "Core/HotkeyManager.h"
 #include "Core/Movie.h"
 #include "Core/State.h"
 #include "Core/HW/CPU.h"
@@ -138,7 +139,7 @@ wxMenuBar* CFrame::CreateMenu()
 	fileMenu->Append(IDM_CHANGE_DISC, GetMenuLabel(HK_CHANGE_DISC));
 
 	wxMenu *externalDrive = new wxMenu;
-	fileMenu->Append(IDM_DRIVES, _("&Boot from DVD Drive..."), externalDrive);
+	fileMenu->Append(IDM_DRIVES, _("&Boot from DVD Backup..."), externalDrive);
 
 	drives = cdio_get_devices();
 	// Windows Limitation of 24 character drives
@@ -238,6 +239,7 @@ wxMenuBar* CFrame::CreateMenu()
 	pOptionsMenu->Append(IDM_CONFIG_AUDIO, _("&Audio Settings"));
 	pOptionsMenu->Append(IDM_CONFIG_CONTROLLERS, _("&Controller Settings"));
 	pOptionsMenu->Append(IDM_CONFIG_HOTKEYS, _("&Hotkey Settings"));
+	pOptionsMenu->Append(IDM_CONFIG_MENU_COMMANDS, _("&Menu Accelerators"));
 	if (g_pCodeWindow)
 	{
 		pOptionsMenu->AppendSeparator();
@@ -384,7 +386,7 @@ wxMenuBar* CFrame::CreateMenu()
 	wxMenu* helpMenu = new wxMenu;
 	// Re-enable when there's something useful to display */
 	// helpMenu->Append(wxID_HELP, _("&Help"));
-	helpMenu->Append(IDM_HELP_WEBSITE, _("Dolphin &Web Site"));
+	helpMenu->Append(IDM_HELP_WEBSITE, _("Dolphin &Website"));
 	helpMenu->Append(IDM_HELP_ONLINE_DOCS, _("Online &Documentation"));
 	helpMenu->Append(IDM_HELP_GITHUB, _("Dolphin at &GitHub"));
 	helpMenu->AppendSeparator();
@@ -1209,7 +1211,6 @@ void CFrame::DoStop()
 			Movie::EndPlayInput(false);
 		NetPlay::StopGame();
 
-		wxBeginBusyCursor();
 		BootManager::Stop();
 		UpdateGUI();
 	}
@@ -1217,8 +1218,6 @@ void CFrame::DoStop()
 
 void CFrame::OnStopped()
 {
-	wxEndBusyCursor();
-
 	m_confirmStop = false;
 
 #if defined(HAVE_X11) && HAVE_X11
@@ -1347,14 +1346,48 @@ void CFrame::OnConfigControllers(wxCommandEvent& WXUNUSED (event))
 {
 	ControllerConfigDiag config_dlg(this);
 	config_dlg.ShowModal();
-	config_dlg.Destroy();
 }
+
+void CFrame::OnConfigMenuCommands(wxCommandEvent& WXUNUSED(event))
+{
+	HotkeyConfigDialog m_HotkeyDialog(this);
+	m_HotkeyDialog.ShowModal();
+
+	// Update the GUI in case menu accelerators were changed
+	UpdateGUI();
+}
+
 
 void CFrame::OnConfigHotkey(wxCommandEvent& WXUNUSED (event))
 {
-	HotkeyConfigDialog *m_HotkeyDialog = new HotkeyConfigDialog(this);
-	m_HotkeyDialog->ShowModal();
-	m_HotkeyDialog->Destroy();
+	bool was_init = false;
+
+	InputConfig* const hotkey_plugin = HotkeyManagerEmu::GetConfig();
+
+	// check if game is running
+	if (g_controller_interface.IsInit())
+	{
+		was_init = true;
+	}
+	else
+	{
+#if defined(HAVE_X11) && HAVE_X11
+		Window win = X11Utils::XWindowFromHandle(GetHandle());
+		HotkeyManagerEmu::Initialize(reinterpret_cast<void*>(win));
+#else
+		HotkeyManagerEmu::Initialize(reinterpret_cast<void*>(GetHandle()));
+#endif
+	}
+
+	InputConfigDialog m_ConfigFrame(this, *hotkey_plugin, _("Dolphin Hotkeys"));
+	m_ConfigFrame.ShowModal();
+
+	// if game isn't running
+	if (!was_init)
+	{
+		HotkeyManagerEmu::Shutdown();
+	}
+
 	// Update the GUI in case menu accelerators were changed
 	UpdateGUI();
 }
@@ -1376,7 +1409,7 @@ void CFrame::OnHelp(wxCommandEvent& event)
 		WxUtils::Launch("https://dolphin-emu.org/docs/guides/");
 		break;
 	case IDM_HELP_GITHUB:
-		WxUtils::Launch("https://github.com/dolphin-emu/dolphin/");
+		WxUtils::Launch("https://github.com/dolphin-emu/dolphin");
 		break;
 	}
 }

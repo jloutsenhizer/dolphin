@@ -186,7 +186,7 @@ namespace JitILProfiler
 	static Block& Add(u64 codeHash)
 	{
 		const u32 _blockIndex = (u32)blocks.size();
-		blocks.push_back(Block());
+		blocks.emplace_back();
 		Block& block = blocks.back();
 		block.index = _blockIndex;
 		block.codeHash = codeHash;
@@ -305,12 +305,6 @@ void JitIL::WriteCallInterpreter(UGeckoInstruction inst)
 	}
 }
 
-void JitIL::unknown_instruction(UGeckoInstruction inst)
-{
-	// CCPU::Break();
-	PanicAlert("unknown_instruction %08x - Fix me ;)", inst.hex);
-}
-
 void JitIL::FallBackToInterpreter(UGeckoInstruction _inst)
 {
 	ibuild.EmitFallBackToInterpreter(
@@ -361,11 +355,6 @@ static void ImHere()
 
 void JitIL::Cleanup()
 {
-	if (jo.optimizeGatherPipe && js.fifoBytesThisBlock > 0)
-	{
-		ABI_CallFunction((void *)&GPFifo::CheckGatherPipe);
-	}
-
 	// SPEED HACK: MMCR0/MMCR1 should be checked at run-time, not at compile time.
 	if (MMCR0.Hex || MMCR1.Hex)
 		ABI_CallFunctionCCC((void *)&PowerPC::UpdatePerformanceMonitor, js.downcountAmount, jit->js.numLoadStoreInst, jit->js.numFloatingPointInst);
@@ -521,6 +510,7 @@ void JitIL::Jit(u32 em_address)
 		NPC = nextPC;
 		PowerPC::ppcState.Exceptions |= EXCEPTION_ISI;
 		PowerPC::CheckExceptions();
+		WARN_LOG(POWERPC, "ISI exception at 0x%08x", nextPC);
 		return;
 	}
 

@@ -32,6 +32,7 @@
 
 #include "Core/ConfigManager.h"
 #include "Core/Core.h"
+#include "Core/HotkeyManager.h"
 #include "Core/Movie.h"
 #include "Core/NetPlayProto.h"
 #include "Core/HW/EXI.h"
@@ -40,6 +41,7 @@
 #include "Core/HW/DSPHLE/DSPHLE.h"
 #include "Core/HW/DSPLLE/DSPLLE.h"
 #include "Core/IPC_HLE/WII_IPC_HLE.h"
+#include "Core/PowerPC/PowerPC.h"
 
 #include "DiscIO/NANDContentLoader.h"
 
@@ -47,9 +49,12 @@
 #include "DolphinWX/Frame.h"
 #include "DolphinWX/Globals.h"
 #include "DolphinWX/HotkeyDlg.h"
+#include "DolphinWX/InputConfigDiag.h"
 #include "DolphinWX/Main.h"
 #include "DolphinWX/WxUtils.h"
 #include "DolphinWX/Debugger/CodeWindow.h"
+
+#include "InputCommon/InputConfig.h"
 
 #include "VideoCommon/VideoBackendBase.h"
 
@@ -465,35 +470,46 @@ void CConfigMain::InitializeGUIValues()
 void CConfigMain::InitializeGUITooltips()
 {
 	// General - Basic
-	CPUThread->SetToolTip(_("This splits the Video and CPU threads, so they can be run on separate cores.\nCauses major speed improvements on PCs with more than one core, but can also cause occasional crashes/glitches."));
-	Framelimit->SetToolTip(_("This limits the game speed to the specified number of frames per second (full speed is 60 for NTSC and 50 for PAL)."));
+	CPUThread->SetToolTip(_("Splits the CPU and GPU threads so they can be run on separate cores.\nProvides major speed improvements on most modern PCs, but can cause occasional crashes/glitches."));
+	SkipIdle->SetToolTip(_("Attempt to detect and skip wait-loops.\nIf unsure, leave this checked."));
+	EnableCheats->SetToolTip(_("Enables the use of Action Replay and Gecko cheats."));
+	Framelimit->SetToolTip(_("Limits the game speed to the specified number of frames per second (full speed is 60 for NTSC and 50 for PAL)."));
 
 	// General - Advanced
-	_NTSCJ->SetToolTip(_("Forces NTSC-J mode for using the Japanese ROM font.\nLeft unchecked, dolphin defaults to NTSC-U and automatically enables this setting when playing Japanese games."));
+	_NTSCJ->SetToolTip(_("Forces NTSC-J mode for using the Japanese ROM font.\nIf left unchecked, Dolphin defaults to NTSC-U and automatically enables this setting when playing Japanese games."));
 
 	// Display - Interface
 	ConfirmStop->SetToolTip(_("Show a confirmation box before stopping a game."));
-	UsePanicHandlers->SetToolTip(_("Show a message box when a potentially serious error has occurred.\nDisabling this may avoid annoying and non-fatal messages, but it may also mean that Dolphin suddenly crashes without any explanation at all."));
-	OnScreenDisplayMessages->SetToolTip(_("Show messages on the emulation screen area.\nThese messages include memory card writes, video backend and CPU information, and JIT cache clearing."));
+	UsePanicHandlers->SetToolTip(_("Show a message box when a potentially serious error has occurred.\nDisabling this may avoid annoying and non-fatal messages, but it may result in major crashes having no explanation at all."));
+	OnScreenDisplayMessages->SetToolTip(_("Display messages over the emulation screen area.\nThese messages include memory card writes, video backend and CPU information, and JIT cache clearing."));
 
 	InterfaceLang->SetToolTip(_("Change the language of the user interface.\nRequires restart."));
 
-	// Audio tooltips
-	BackendSelection->SetToolTip(_("Changing this will have no effect while the emulator is running!"));
+	// Audio - Backend
+	BackendSelection->SetToolTip(_("Changing this will have no effect while the emulator is running."));
+
+	// GameCube - IPL
+	GCSystemLang->SetToolTip(_("Sets the GameCube system language."));
 
 	// GameCube - Devices
-	GCEXIDevice[2]->SetToolTip(_("Serial Port 1 - This is the port which devices such as the net adapter use"));
+	GCEXIDevice[2]->SetToolTip(_("Serial Port 1 - This is the port which devices such as the net adapter use."));
+
+	// Wii - Misc
+	WiiScreenSaver->SetToolTip(_("Dims the screen after five minutes of inactivity."));
+	WiiPAL60->SetToolTip(_("Sets the Wii display mode to 60Hz (480i) instead of 50Hz (576i) for PAL games.\nMay not work for all games."));
+	WiiSystemLang->SetToolTip(_("Sets the Wii system language."));
 
 	// Wii - Devices
-	WiiKeyboard->SetToolTip(_("This could cause slow down in Wii Menu and some games."));
+	WiiSDCard->SetToolTip(_("Saved to /Wii/sd.raw (default size is 128mb)"));
+	WiiKeyboard->SetToolTip(_("May cause slow down in Wii Menu and some games."));
 
 #if defined(__APPLE__)
-	DPL2Decoder->SetToolTip(_("Enables Dolby Pro Logic II emulation using 5.1 surround. Not available on OSX."));
+	DPL2Decoder->SetToolTip(_("Enables Dolby Pro Logic II emulation using 5.1 surround. Not available on OS X."));
 #else
 	DPL2Decoder->SetToolTip(_("Enables Dolby Pro Logic II emulation using 5.1 surround. OpenAL or Pulse backends only."));
 #endif
 
-	Latency->SetToolTip(_("Sets the latency (in ms).  Higher values may reduce audio crackling. OpenAL backend only."));
+	Latency->SetToolTip(_("Sets the latency (in ms). Higher values may reduce audio crackling. OpenAL backend only."));
 }
 
 void CConfigMain::CreateGUIControls()
@@ -749,7 +765,7 @@ void CConfigMain::CreateGUIControls()
 	RecursiveISOPath = new wxCheckBox(PathsPage, ID_RECURSIVEISOPATH, _("Search Subfolders"));
 	AddISOPath = new wxButton(PathsPage, ID_ADDISOPATH, _("Add..."));
 	RemoveISOPath = new wxButton(PathsPage, ID_REMOVEISOPATH, _("Remove"));
-	RemoveISOPath->Enable(false);
+	RemoveISOPath->Disable();
 
 	DefaultISO = new wxFilePickerCtrl(PathsPage, ID_DEFAULTISO, wxEmptyString, _("Choose a default ISO:"),
 		_("All GC/Wii files (elf, dol, gcm, iso, wbfs, ciso, gcz, wad)") + wxString::Format("|*.elf;*.dol;*.gcm;*.iso;*.wbfs;*.ciso;*.gcz;*.wad|%s", wxGetTranslation(wxALL_FILES)),
@@ -880,7 +896,7 @@ void CConfigMain::CoreSettingsChanged(wxCommandEvent& event)
 		startup_params.iCPUCore = CPUCores[CPUEngine->GetSelection()].CPUid;
 		if (main_frame->g_pCodeWindow)
 		{
-			bool using_interp = (startup_params.iCPUCore == SCoreStartupParameter::CORE_INTERPRETER);
+			bool using_interp = (startup_params.iCPUCore == PowerPC::CORE_INTERPRETER);
 			main_frame->g_pCodeWindow->GetMenuBar()->Check(IDM_INTERPRETER, using_interp);
 		}
 		break;
@@ -924,8 +940,33 @@ void CConfigMain::DisplaySettingsChanged(wxCommandEvent& event)
 		break;
 	case ID_HOTKEY_CONFIG:
 		{
-			HotkeyConfigDialog m_HotkeyDialog(this);
-			m_HotkeyDialog.ShowModal();
+			bool was_init = false;
+
+			InputConfig* const hotkey_plugin = HotkeyManagerEmu::GetConfig();
+
+			// check if game is running
+			if (g_controller_interface.IsInit())
+			{
+				was_init = true;
+			}
+			else
+			{
+#if defined(HAVE_X11) && HAVE_X11
+				Window win = X11Utils::XWindowFromHandle(GetHandle());
+				HotkeyManagerEmu::Initialize(reinterpret_cast<void*>(win));
+#else
+				HotkeyManagerEmu::Initialize(reinterpret_cast<void*>(GetHandle()));
+#endif
+			}
+
+			InputConfigDialog m_ConfigFrame(this, *hotkey_plugin, _("Dolphin Hotkeys"));
+			m_ConfigFrame.ShowModal();
+
+			// if game isn't running
+			if (!was_init)
+			{
+				HotkeyManagerEmu::Shutdown();
+			}
 		}
 		// Update the GUI in case menu accelerators were changed
 		main_frame->UpdateGUI();

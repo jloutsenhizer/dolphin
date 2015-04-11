@@ -2,9 +2,8 @@
 // Licensed under GPLv2
 // Refer to the license.txt file included.
 
-#include <emmintrin.h>
-
 #include "Common/CommonTypes.h"
+#include "Common/Intrinsics.h"
 #include "Common/MathUtil.h"
 
 #include "Core/HW/MMIO.h"
@@ -313,7 +312,7 @@ void EmuCodeBlock::SafeLoadToReg(X64Reg reg_value, const Gen::OpArg & opAddress,
 		if (accessSize != 64 && mmioAddress)
 		{
 			MMIOLoadToReg(Memory::mmio_mapping, reg_value, registersInUse,
-				            address, accessSize, signExtend);
+			              mmioAddress, accessSize, signExtend);
 			return;
 		}
 
@@ -477,7 +476,7 @@ bool EmuCodeBlock::WriteToConstAddress(int accessSize, OpArg arg, u32 address, B
 
 	// If we already know the address through constant folding, we can do some
 	// fun tricks...
-	if ((address & 0xFFFFF000) == 0xCC008000 && jit->jo.optimizeGatherPipe)
+	if (jit->jo.optimizeGatherPipe && PowerPC::IsOptimizableGatherPipeWrite(address))
 	{
 		if (!arg.IsSimpleReg() || arg.GetSimpleReg() != RSCRATCH)
 			MOV(accessSize, R(RSCRATCH), arg);

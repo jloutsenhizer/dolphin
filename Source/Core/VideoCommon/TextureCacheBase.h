@@ -41,7 +41,6 @@ public:
 				return std::hash<u64>::operator()(id);
 			}
 		};
-
 	};
 	struct TCacheEntryBase
 	{
@@ -53,6 +52,7 @@ public:
 		u64 hash;
 		u32 format;
 		bool is_efb_copy;
+		bool is_custom_tex;
 
 		unsigned int native_width, native_height; // Texture dimensions from the GameCube's point of view
 		unsigned int native_levels;
@@ -104,7 +104,7 @@ public:
 
 	// Removes textures which aren't used for more than TEXTURE_KILL_THRESHOLD frames,
 	// frameCount is the current frame number.
-	static void Cleanup(int frameCount);
+	static void Cleanup(int _frameCount);
 
 	static void Invalidate();
 	static void MakeRangeDynamic(u32 start_address, u32 size);

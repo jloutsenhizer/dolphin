@@ -81,11 +81,11 @@ static wxString GetValueByRowCol(int row, int col)
 		// Column Labels
 		switch (col)
 		{
-		case 0: return wxString::Format("Label");
-		case 1: return wxString::Format("Addr");
-		case 2: return wxString::Format("Hex");
-		case 3: return wxString::Format("Dec");
-		case 4: return wxString::Format("Str");
+		case 0: return _("Label");
+		case 1: return _("Address");
+		case 2: return _("Hexadecimal");
+		case 3: return _("Decimal");
+		case 4: return _("String");
 		default: return wxEmptyString;
 		}
 	}
@@ -208,14 +208,16 @@ wxGridCellAttr* CWatchTable::GetAttr(int row, int col, wxGridCellAttr::wxAttrKin
 			attr->SetBackgroundColour(*wxLIGHT_GREY);
 		}
 	}
-	attr->IncRef();
+
 	return attr;
 }
 
 CWatchView::CWatchView(wxWindow* parent, wxWindowID id)
 	: wxGrid(parent, id)
 {
-	SetTable(new CWatchTable(), false);
+	m_watch_table = new CWatchTable();
+
+	SetTable(m_watch_table, true);
 	SetRowLabelSize(0);
 	SetColLabelSize(0);
 	DisableDragRowSize();
@@ -229,7 +231,7 @@ void CWatchView::Update()
 	if (PowerPC::GetState() != PowerPC::CPU_POWERDOWN)
 	{
 		ForceRefresh();
-		((CWatchTable *)GetTable())->UpdateWatch();
+		m_watch_table->UpdateWatch();
 	}
 }
 

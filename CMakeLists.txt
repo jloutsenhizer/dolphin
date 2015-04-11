@@ -440,8 +440,7 @@ if(NOT ANDROID)
 	set(USE_X11 0)
 
 	if(UNIX AND NOT APPLE)
-		# Note: We do not need to explicitly check for X11 as it is done in the cmake
-		# FindOpenGL module on linux.
+		include(FindX11)
 		if(TRY_X11 AND X11_FOUND)
 			set(USE_X11 1)
 			add_definitions(-DHAVE_X11=1)
@@ -490,6 +489,7 @@ if(NOT ANDROID)
 		int main(int argc, char **argv)
 		{ if(Pa_GetVersion() >= 1890) return 0; else return 1; }"
 		PORTAUDIO)
+	unset(CMAKE_REQUIRED_LIBRARIES)
 	if(PORTAUDIO)
 		message("PortAudio found, enabling mic support")
 		add_definitions(-DHAVE_PORTAUDIO=1)
@@ -534,6 +534,18 @@ include_directories(Source/Core)
 #
 add_subdirectory(Externals/Bochs_disasm)
 include_directories(Externals/Bochs_disasm)
+
+if(NOT APPLE AND NOT ANDROID)
+        check_lib(ENET enet enet/enet.h QUIET)
+endif()
+if (ENET_FOUND)
+        message("Using shared enet")
+else()
+	message("Using static enet from Externals")
+	include_directories(Externals/enet/include)
+	add_subdirectory(Externals/enet)
+endif()
+LIST(APPEND LIBS enet)
 
 if(NOT XXHASH_FOUND)
 	message("Using static xxhash from Externals")

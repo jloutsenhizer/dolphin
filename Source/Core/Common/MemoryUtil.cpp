@@ -109,10 +109,10 @@ void* AllocateMemoryPages(size_t size)
 	return ptr;
 }
 
-void* AllocateAlignedMemory(size_t size,size_t alignment)
+void* AllocateAlignedMemory(size_t size, size_t alignment)
 {
 #ifdef _WIN32
-	void* ptr =  _aligned_malloc(size,alignment);
+	void* ptr = _aligned_malloc(size, alignment);
 #else
 	void* ptr = nullptr;
 	if (posix_memalign(&ptr, alignment, size) != 0)
@@ -145,7 +145,7 @@ void FreeMemoryPages(void* ptr, size_t size)
 #endif
 
 		if (error_occurred)
-			PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg());
+			PanicAlert("FreeMemoryPages failed!\n%s", GetLastErrorMsg().c_str());
 	}
 }
 
@@ -177,7 +177,7 @@ void ReadProtectMemory(void* ptr, size_t size)
 #endif
 
 	if (error_occurred)
-		PanicAlert("ReadProtectMemory failed!\n%s", GetLastErrorMsg());
+		PanicAlert("ReadProtectMemory failed!\n%s", GetLastErrorMsg().c_str());
 }
 
 void WriteProtectMemory(void* ptr, size_t size, bool allowExecute)
@@ -196,7 +196,7 @@ void WriteProtectMemory(void* ptr, size_t size, bool allowExecute)
 #endif
 
 	if (error_occurred)
-		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg());
+		PanicAlert("WriteProtectMemory failed!\n%s", GetLastErrorMsg().c_str());
 }
 
 void UnWriteProtectMemory(void* ptr, size_t size, bool allowExecute)
@@ -215,7 +215,7 @@ void UnWriteProtectMemory(void* ptr, size_t size, bool allowExecute)
 #endif
 
 	if (error_occurred)
-		PanicAlert("UnWriteProtectMemory failed!\n%s", GetLastErrorMsg());
+		PanicAlert("UnWriteProtectMemory failed!\n%s", GetLastErrorMsg().c_str());
 }
 
 std::string MemUsage()
